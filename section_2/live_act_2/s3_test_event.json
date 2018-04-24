@@ -1,0 +1,38 @@
+{
+  "Records": [
+    {
+      "eventVersion": "2.0",
+      "eventTime": "2018-04-01T12:34:56.789Z",
+      "requestParameters": {
+        "sourceIPAddress": "127.0.0.1"
+      },
+      "s3": {
+        "configurationId": "testConfigRule",
+        "object": {
+          "eTag": "0123456789abcdef0123456789abcdef",
+          "sequencer": "0A1B2C3D4E5F678901",
+          "key": "TESTEVENT.jpg",
+          "size": 2048
+        },
+        "bucket": {
+          "arn": "arn:aws:s3:::lulz-its-a-bucket",
+          "name": "lulz-its-a-bucket",
+          "ownerIdentity": {
+            "principalId": "TESTbucketOwner"
+          }
+        },
+        "s3SchemaVersion": "1.0"
+      },
+      "responseElements": {
+        "x-amz-id-2": "EXAMPLE123/5678abcdefghijklambdaisawesome/mnopqrstuvwxyzABCDEFGH",
+        "x-amz-request-id": "EXAMPLE123456789"
+      },
+      "awsRegion": "us-east-1",
+      "eventName": "ObjectCreated:Put",
+      "userIdentity": {
+        "principalId": "TEST_USER"
+      },
+      "eventSource": "aws:s3"
+    }
+  ]
+}
