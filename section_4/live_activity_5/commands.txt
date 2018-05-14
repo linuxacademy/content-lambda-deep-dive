@@ -1,0 +1,13 @@
+-Command used in Live Activity-
+
+// List all functions in the region.
+aws lambda list-functions --region us-east-1
+
+// Creating our function.
+aws lambda create-function --region us-east-1 --function-name "ListS3Buckets" --runtime "nodejs8.10" --role "<COPY PASTE ROLE ARN HERE>" --handler "lambda_function.handler" --zip-file fileb:///home/cloud_user/lambda_function.zip
+
+// Updating our use case function.
+aws lambda update-function-configuration --region us-east-1 --function-name "ListS3Buckets" --description "Creating our S3 function via CLI." --timeout 5 --memory-size 256
+
+// Invoking our function
+Was lambda invoke --region us-east-1 --function-name "ListS3Buckets" OUTFILE.log
