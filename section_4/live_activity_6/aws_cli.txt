@@ -1,0 +1,46 @@
+//  Get the instance ID to verify which EC2 to shutdown.
+curl -s http:/169.254.169.254/latest/meta-data/instance-id
+
+// Create our function first.
+aws lambda create-function \
+--region us-east-1 \
+--function-name "EbsSnapshot" \
+--description "Creates a snapshot when instances are going to stop or terminate." \
+--zip-file fileb:///PATH/TO/lambda_function.zip \
+--role arn:aws:iam::account-id:role/lambda_basic_execution_ebs \
+--handler lambda_function.lambda_handler \
+--runtime "python3.6" \
+--timeout 10 \
+--memory-size 1024
+
+
+// Get Lambda function ARN
+aws lambda get-function \
+--function-name "EbsSnapshot" \
+--region us-east-1
+
+
+// Creating the event source mapping. Has to be done with CloudWatch CLI
+aws events put-rule \
+--name "EC2-Stopping" \
+--event-pattern "{\"source\":[\"aws.ec2\"],\"detail-type\":[\"EC2 Instance State-change Notification\"],\"detail\":{\"state\":[\"shutting-down\",\"stopping\"]}}" \
+--state "ENABLED" \
+--description "Takes EBS Snapshot of volume of instance shutting down." \
+--region us-east-1
+
+
+// Permissions for invoking Lambda.
+aws lambda add-permission \
+--statement-id 'abcd-1234-5678' \
+--action 'lambda:InvokeFunction' \
+--principal events.amazonaws.com \
+--source-arn arn:aws:events:region:account-id:rule/rule_name \
+--function-name EbsSnapshot \
+--region us-east-1
+
+
+// Put Lambda function as target for new rule.
+aws events put-targets \
+--rule "EC2-Stopping" \
+--targets "Id"="1","Arn"="arn:aws:lambda:us-east-1:account-i:function:EbsSnapshot" \
+--region us-east-1

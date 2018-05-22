@@ -41,6 +41,6 @@ def lambda_handler(event, context):
                     ## EDIT THE ARN
                     TopicArn='ARN',
                     Message='Your rule has been triggered to create a snapshot for the following volume -- Volume ID: ' + ebs,
-                    Subject='Snapshot Occured'
+                    Subject='Snapshot Occurred'
                 )
 
