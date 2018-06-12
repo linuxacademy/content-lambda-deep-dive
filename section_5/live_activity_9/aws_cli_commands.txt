@@ -1,0 +1,96 @@
+107.21.185.128
+lhcifJPogo
+
+vim lambda_function.py
+zip lambda_function.zip lambda_function.py
+
+//CREATE FUNCTIION
+aws lambda create-function \
+--function-name SnapShot \
+--description "Taking EBS Snaps" \
+--memory-size 1024 \
+--timeout 10 \
+--handler lambda_function.handler \
+--runtime "python3.6" \
+--role "arn:aws:iam::625795409439:role/lambda_exec_role_LA" \
+--zip-file fileb:///home/cloud_user/lambda_function.zip \
+--region us-east-1
+
+//PUBLISH VERSION
+aws lambda publish-version \
+--function-name SnapShot \
+--region us-east-1
+
+//LIST VERSIONS
+aws lambda list-versions-by-function \
+--function-name SnapShot
+
+//CREATE ALIAS
+aws lambda create-alias \
+--function-name SnapShot \
+--description "Production Alias" \
+--function-version 1 \
+--name PROD \
+--region us-east-1
+
+//CHECK ALIAS
+aws lambda list-aliases \
+--function-name SnapShot \
+--region us-east-1
+
+//ADD PERMISSION FOR EVENTS
+aws lambda add-permission \
+--function-name SnapShot \
+--qualifier PROD \
+--statement-id 001 \
+--principal events.amazonaws.com \
+--action lambda:InvokeFunction \
+--region us-east-1
+
+//PUT RULE
+aws events put-rule \
+--name "EC2-SNAP" \
+--schedule-expression "rate(2 minutes)" \
+--state "ENABLED" \
+--description "Takes EBS Snapshot of volumes on a schedules basis." \
+--region us-east-1
+
+//PUT TARGETS
+aws events put-targets \
+--rule "EC2-SNAP" \
+--targets "Id"="1","Arn"="arn:aws:lambda:us-east-1:625795409439:function:SnapShot:PROD" \
+--region us-east-1
+
+//PAUSE RULE
+aws events disable-rule \
+--name EC2-SNAP \
+--region us-east-1
+
+//UPLOAD NEW CODE
+aws lambda update-function-code \
+--function-name SnapShot \
+--zip-file fileb:///home/cloud_user/lambda_function.zip \
+--region us-east-1
+
+//PUBLISH NEW VERSION
+aws lambda publish-version \
+--function-name SnapShot \
+--region us-east-1
+
+//UPDATE ALIAS
+aws lambda update-alias \
+--function-name SnapShot \
+--name PROD \
+--function-version 2 \
+--region us-east-1
+
+//CHECK ALIAS
+aws lambda list-aliases \
+--function-name SnapShot \
+--region us-east-1
+
+//RE-ENABLE RULE
+aws events enable-rule \
+--name EC2-SNAP \
+--region us-east-1
+
