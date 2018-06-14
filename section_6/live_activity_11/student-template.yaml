@@ -1,0 +1,240 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  Creates the resources necessary to create a rule to monitor and
+  auto-mitigate security group change events
+
+Metadata:
+  License:
+    Description: |
+      Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+      Licensed under the Apache License, Version 2.0 (the "License"). You may not use this file except in compliance with the License. A copy of the License is located at
+
+          http://aws.amazon.com/apache2.0/
+
+      or in the "license" file accompanying this file. This file is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Settings
+        Parameters:
+          - NotificationEmailAddress
+
+    ParameterLabels:
+      NotificationEmailAddress:
+        default: Send notifications to
+
+Parameters:
+
+  NotificationEmailAddress:
+    Description: |
+      This is the email address that will receive change notifications. You will
+      receive a confirmation email that you must accept before you will receive
+      notifications.
+    Type: String
+
+Conditions:
+
+  AddEmailNotificationSubscription:
+    !Not [!Equals [!Ref NotificationEmailAddress, ""]]
+
+Resources:
+
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTPS access to web servers
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+        CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: Web Server Security Group
+
+  SecurityGroupChangeAutoResponseRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        -
+          PolicyName: SecurityGroupModification
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              -
+                Sid: AllowSecurityGroupActions
+                Effect: Allow
+                Action:
+                  - ec2:RevokeSecurityGroupIngress
+                Resource: !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:security-group/${WebServerSecurityGroup.GroupId}
+              -
+                Sid: AllowSnsActions
+                Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Ref SnsTopicForCloudWatchEvent
+
+  SecurityGroupChangeAutoResponse:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Responds to security group changes
+      Handler: index.lambda_handler
+      MemorySize: 1024
+      Role: !GetAtt SecurityGroupChangeAutoResponseRole.Arn
+      Runtime: python2.7
+      Timeout: 60
+      Environment:
+        Variables:
+          security_group_id: !GetAtt WebServerSecurityGroup.GroupId
+          sns_topic_arn: !Ref SnsTopicForCloudWatchEvent
+      Code:
+        ZipFile: |
+          import os, json, boto3
+
+          #===============================================================================
+          def lambda_handler(event, context):
+
+              print(event)
+
+              # Ensure that we have an event name to evaluate.
+              if 'detail' not in event or ('detail' in event and 'eventName' not in event['detail']):
+                  return {"Result": "Failure", "Message": "Lambda not triggered by an event"}
+
+              # Remove the rule only if the event was to authorize the ingress rule for the given
+              # security group that was injected during CloudFormation execution.
+              if (event['detail']['eventName'] == 'AuthorizeSecurityGroupIngress' and
+                  event['detail']['requestParameters']['groupId'] == os.environ['security_group_id']):
+                  result = revoke_security_group_ingress(event['detail'])
+
+                  message = "AUTO-MITIGATED: Ingress rule removed from security group: {} that was added by {}: {}".format(
+                          result['group_id'],
+                          result['user_name'],
+                          json.dumps(result['ip_permissions'])
+                          )
+
+                  boto3.client('sns').publish(
+                    TargetArn = os.environ['sns_topic_arn'],
+                    Message = message,
+                    Subject = "Auto-mitigation successful"
+                    )
+
+
+          #===============================================================================
+          def revoke_security_group_ingress(event_detail):
+
+              request_parameters = event_detail['requestParameters']
+
+              # Build the normalized IP permission JSON struture.
+              ip_permissions = normalize_paramter_names(request_parameters['ipPermissions']['items'])
+
+              response = boto3.client('ec2').revoke_security_group_ingress(
+                  GroupId = request_parameters['groupId'],
+                  IpPermissions = ip_permissions
+                  )
+
+              # Build the result
+              result = {}
+              result['group_id'] = request_parameters['groupId']
+              result['user_name'] = event_detail['userIdentity']['arn']
+              result['ip_permissions'] = ip_permissions
+
+              return result
+
+
+          #===============================================================================
+          def normalize_paramter_names(ip_items):
+
+              # Start building the permissions items list.
+              new_ip_items = []
+
+              # First, build the basic parameter list.
+              for ip_item in ip_items:
+
+                  new_ip_item = {
+                      "IpProtocol": ip_item['ipProtocol'],
+                      "FromPort": ip_item['fromPort'],
+                      "ToPort": ip_item['toPort']
+                  }
+
+                  #CidrIp or CidrIpv6 (IPv4 or IPv6)?
+                  if 'ipv6Ranges' in ip_item and ip_item['ipv6Ranges']:
+                      # This is an IPv6 permission range, so change the key names.
+                      ipv_range_list_name = 'ipv6Ranges'
+                      ipv_address_value = 'cidrIpv6'
+                      ipv_range_list_name_capitalized = 'Ipv6Ranges'
+                      ipv_address_value_capitalized = 'CidrIpv6'
+                  else:
+                      ipv_range_list_name = 'ipRanges'
+                      ipv_address_value = 'cidrIp'
+                      ipv_range_list_name_capitalized = 'IpRanges'
+                      ipv_address_value_capitalized = 'CidrIp'
+
+                  ip_ranges = []
+
+                  # Next, build the IP permission list.
+                  for item in ip_item[ipv_range_list_name]['items']:
+                      ip_ranges.append(
+                          {ipv_address_value_capitalized : item[ipv_address_value]}
+                          )
+
+                  new_ip_item[ipv_range_list_name_capitalized] = ip_ranges
+
+                  new_ip_items.append(new_ip_item)
+
+              return new_ip_items
+
+  SecurityGroupChangeAutoResponseLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      FunctionName: !Ref SecurityGroupChangeAutoResponse
+
+  TriggeredRuleForSecurityGroupChangeAutoResponse:
+    Type: AWS::Events::Rule
+    Properties:
+      #Name: SecurityGroupChangeAutoResponse
+      Description: Responds to security group change events
+      EventPattern:
+        detail:
+          eventSource:
+            - ec2.amazonaws.com
+          eventName:
+            - AuthorizeSecurityGroupIngress
+            - AuthorizeSecurityGroupEgress
+            - RevokeSecurityGroupEgress
+            - RevokeSecurityGroupIngress
+            - CreateSecurityGroup
+            - DeleteSecurityGroup
+      State: ENABLED
+      Targets:
+        -
+          Arn: !GetAtt SecurityGroupChangeAutoResponse.Arn
+          Id: TargetFunctionV1
+
+  SnsTopicForCloudWatchEvent:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: Broadcasts message to subscribers
+
+  SnsTopicSubscriptionForCloudWatchEvent:
+    Type: AWS::SNS::Subscription
+    Condition: AddEmailNotificationSubscription
+    Properties:
+      TopicArn: !Ref SnsTopicForCloudWatchEvent
+      Endpoint: !Ref NotificationEmailAddress
+      Protocol: email
