@@ -2,7 +2,7 @@
 wget https://raw.githubusercontent.com/linuxacademy/content-lambda-deep-dive/master/section_6/live_activity_12/lambda_function.py
 
 // Get our custom app zip file for Docker
-
+wget https://github.com/linuxacademy/content-lambda-deep-dive/raw/master/section_6/live_activity_12/docker-app.zip
 
 aws lambda create-function \
 --function-name ECS \
