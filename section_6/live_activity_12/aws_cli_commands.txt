@@ -1,0 +1,15 @@
+// Get our function code
+wget https://raw.githubusercontent.com/linuxacademy/content-lambda-deep-dive/master/section_6/live_activity_12/lambda_function.py
+
+// Get our custom app zip file for Docker
+
+
+aws lambda create-function \
+--function-name ECS \
+--handler lambda_function.lambda_handler \
+--memory-size 1024 \
+--timeout 15 \
+--runtime python3.6 \
+--zip-file fileb:///home/user/lambda_function.zip \
+--role arn:aws:iam::482568189419:role/lambda_exec_role_LA \
+--environment Variables="{NAME=secondcontainer,IMAGE=URI,TASK_DEF=linuxtaskdef,CLUSTER=linuxcluster,SERVICE=linuxservice}"
