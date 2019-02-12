@@ -10,4 +10,4 @@ aws lambda create-function --region us-east-1 --function-name "ListS3Buckets" --
 aws lambda update-function-configuration --region us-east-1 --function-name "ListS3Buckets" --description "Creating our S3 function via CLI." --timeout 5 --memory-size 256
 
 // Invoking our function
-Was lambda invoke --region us-east-1 --function-name "ListS3Buckets" OUTFILE.log
+aws lambda invoke --region us-east-1 --function-name "ListS3Buckets" OUTFILE.log
