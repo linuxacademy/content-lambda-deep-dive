@@ -1,0 +1,147 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "CloudFormation Template for Student Use",
+
+  "Resources" : {
+
+    "LambdaRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [{
+              "Effect": "Allow",
+              "Principal": {"Service": ["lambda.amazonaws.com"]},
+              "Action": ["sts:AssumeRole"]
+          }]
+        },
+        "Path": "/",
+        "Policies": [{
+          "PolicyName": "root",
+          "PolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Effect": "Allow",
+                "Action": [
+                    "cloudwatch:DeleteAlarms",
+                    "cloudwatch:DescribeAlarmHistory",
+                    "cloudwatch:DescribeAlarms",
+                    "cloudwatch:DescribeAlarmsForMetric",
+                    "cloudwatch:GetMetricStatistics",
+                    "cloudwatch:ListMetrics",
+                    "cloudwatch:PutMetricAlarm",
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents",
+                    "iam:GetRole",
+                    "iam:ListRoles",
+                    "lambda:*",
+                    "s3:GetBucketPolicy",
+                    "s3:GetObject",
+                    "s3:HeadBucket",
+                    "s3:ListAllMyBuckets",
+                    "s3:ListBucket",
+                    "s3:ListObjects",
+                    "s3:PutBucketNotification",
+                    "s3:GetBucketNotification",
+                    "s3:PutObject",
+                    "s3:PutObjectTagging"
+                  ],
+                "Resource": "*"
+            }]
+          }
+        }],
+        "RoleName": "lambda_exec_role"
+      }
+    },
+
+    "S3InvokeRole": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": { "Fn::GetAtt": [ "LambdaFunction" , "Arn" ]},
+        "Principal": "s3.amazonaws.com"
+      }
+    },
+
+    "LambdaRolePolicy": {
+      "DependsOn": [
+        "LambdaRole"
+      ],
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyName": "LambdaRolePolicy",
+        "Roles": [
+          {"Ref": "LambdaRole"}
+        ],
+        "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [{
+                  "Effect": "Allow",
+                  "Action": [
+                      "cloudwatch:DeleteAlarms",
+                      "cloudwatch:DescribeAlarmHistory",
+                      "cloudwatch:DescribeAlarms",
+                      "cloudwatch:DescribeAlarmsForMetric",
+                      "cloudwatch:GetMetricStatistics",
+                      "cloudwatch:ListMetrics",
+                      "cloudwatch:PutMetricAlarm",
+                      "logs:CreateLogGroup",
+                      "logs:CreateLogStream",
+                      "logs:PutLogEvents",
+                      "iam:GetRole",
+                      "iam:ListRoles",
+                      "lambda:*"
+                    ],
+                  "Resource": "*"
+              }]
+        }
+      }
+    },
+
+    "LambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "DependsOn": [
+        "LambdaRole",
+        "LambdaRolePolicy"
+      ],
+      "Properties": {
+        "Code": {
+          "S3Bucket": { "Ref" : "CodeBucket" },
+          "S3Key": { "Ref" : "LambdaFileName" }
+        },
+        "Role": {
+          "Fn::GetAtt": [ "LambdaRole", "Arn" ]
+        },
+        "Description": "This function creates a thumbnail version of an uploaded image!",
+        "Timeout": 15,
+        "Handler": "index.handler",
+        "Runtime": "nodejs12.x",
+        "MemorySize": 1024,
+        "Environment": {
+          "Variables": {
+            "DST_BUCKET" : { "Ref" : "DestinationBucket"}          }
+        }
+      }
+    }
+  },
+
+  "Parameters": {
+    "DestinationBucket": {
+      "Type": "String",
+      "Description": "Enter the destination bucket for the thumbnail here!"
+    },
+
+    "CodeBucket": {
+      "Type": "String",
+      "Description": "Enter the bucket name where you uploaded your Lambda function ZIP file."
+    },
+
+    "LambdaFileName": {
+      "Type": "String",
+      "Description": "Enter the file name of the Lambda function ZIP file.",
+      "Default": "lambda_function_mk2.zip"
+    }
+  }
+}
