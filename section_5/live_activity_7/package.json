@@ -4,17 +4,17 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
-    "sharp": "^0.25.4"
+    "async": "^3.2",
+    "sharp": "^0.25"
   },
   "devDependencies": {
-    "aws-sdk": "^2.713.0",
-    "npm-build-zip": "^1.0.2"
+    "aws-sdk": "^2.713.0"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "zip": "npm-build-zip"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC"
 }
+

@@ -6,6 +6,8 @@ var AWS = require('aws-sdk');
 var sharp = require('sharp'); // Enable Sharp Image manupulaton integration.
 var util = require('util');
 
+// Note: npm install --arch=x64 --platform=linux
+
 // constants
 var MAX_WIDTH  = 150;
 var MAX_HEIGHT = 150;
@@ -58,7 +60,7 @@ exports.handler = function(event, context, callback) {
           next);
       },
 
-      // Try sharp .resize with fit:inside  https://sharp.pixelplumbing.com/api-resize    RL 2020-07-15
+      // Try sharp .resize with fit:inside  https://sharp.pixelplumbing.com/api-resize
       function transform(response, next) {
         sharp(response.Body).resize(MAX_WIDTH, MAX_HEIGHT, {
           kernel: sharp.kernel.nearest,
