@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: CloudFormation Template for Student Use
+Description: 'CloudFormation Template for Student Use'
 Resources:
   LambdaRole:
     Type: AWS::IAM::Role
@@ -51,21 +51,18 @@ Resources:
     DependsOn: S3InvokeRole
     Properties:
       Tags:
-        -
-          Key: "Bucket"
+        - Key: "Bucket"
           Value: "TriggerBucket"
       NotificationConfiguration:
         LambdaConfigurations:
-          -
-            Event: "s3:ObjectCreated:*"
+          - Event: "s3:ObjectCreated:*"
             Function: !GetAtt LambdaFunction.Arn
             Filter:
               S3Key:
                 Rules:
-                  -
-                    Name: suffix
+                  - Name: suffix
                     Value: .jpg
-      
+
   S3InvokeRole:
     Type: AWS::Lambda::Permission
     Properties:
@@ -112,7 +109,7 @@ Resources:
       Description: This function creates a thumbnail version of an uploaded image!
       Timeout: 15
       Handler: index.handler
-      Runtime: nodejs8.10
+      Runtime: nodejs12.x
       MemorySize: 1024
       ReservedConcurrentExecutions: 500
       Environment:
