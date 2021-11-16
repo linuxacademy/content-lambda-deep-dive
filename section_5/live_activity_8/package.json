@@ -8,7 +8,7 @@
     "sharp": "^0.25"
   },
   "devDependencies": {
-    "aws-sdk": "^2.713.0"
+    "aws-sdk": "^2.814.0"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
